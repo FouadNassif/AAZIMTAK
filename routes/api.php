@@ -1,16 +1,18 @@
 <?php
 
-use App\Http\Controllers\api\AdminApi;
 use App\Http\Controllers\api\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/guests', [AdminApi::class, 'getGuests']);
-Route::get('/get-guests', [AdminApi::class, 'getGuests']);
 
-// In routes/api.php
-Route::get('/data', function () {
-    return response()->json(['message' => 'Hello from Laravel!']);
-});
+// Add a route for checking authentication using session cookie
+Route::middleware('auth:web')->get('/test1', [UserController::class, 'dashboard']);
 
+Route::post("/test2", [UserController::class, "test"]);
 
-Route::post('/api/login', [UserController::class, 'login'])->name('api.login');
+// Public Routes
+Route::post('/register', [UserController::class, 'register']);
+Route::post('/login', [UserController::class, 'login']);
+
+// Protected Routes (Requires Authentication)
+Route::middleware('auth:sanctum')->get('/api/v1/user', [UserController::class, 'user']);
+Route::middleware('auth:sanctum')->post('/logout', [UserController::class, 'logout']);

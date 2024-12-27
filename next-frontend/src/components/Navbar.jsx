@@ -9,8 +9,10 @@ import {
     Avatar,
     Link,
 } from "@mui/material";
+import { useAuth } from "../../hooks/auth";
 
 export default function Navbar() {
+    const { user, logout } = useAuth();
     return (
         <AppBar sx={{ backgroundColor: "white" }} position="sticky">
             <Toolbar>
@@ -69,18 +71,50 @@ export default function Navbar() {
                         >
                             Pricing & Preview
                         </Link>
-                        <Link
-                        href="/login"
-                            sx={{
-                                color: "2a5298",
-                                fontWeight: "800",
-                                cursor: "pointer",
-                                padding: "10px 20px",
-                            }}
-                            underline="none"
-                        >
-                            Login
-                        </Link>
+                        {user ? (
+                            <>
+                                <Link
+                                    href="/dashboard"
+                                    sx={{
+                                        color: "2a5298",
+                                        fontWeight: "800",
+                                        cursor: "pointer",
+                                        padding: "10px 20px",
+                                    }}
+                                    underline="none"
+                                >
+                                    Dashboard
+                                </Link>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={logout}
+                                    sx={{
+                                        backgroundColor: "#00BFFF",
+                                        borderRadius: "8px",
+                                        fontWeight: "bold",
+                                        "&:hover": {
+                                            backgroundColor: "#0099CC",
+                                        },
+                                    }}
+                                >
+                                    Logout
+                                </Button>
+                            </>
+                        ) : (
+                            <Link
+                                href="/login"
+                                sx={{
+                                    color: "2a5298",
+                                    fontWeight: "800",
+                                    cursor: "pointer",
+                                    padding: "10px 20px",
+                                }}
+                                underline="none"
+                            >
+                                Login
+                            </Link>
+                        )}
                     </Box>
                 </Box>
             </Toolbar>

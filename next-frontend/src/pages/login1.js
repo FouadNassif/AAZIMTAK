@@ -1,5 +1,6 @@
 import React, { useState, FormEvent } from "react";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+
 import {
     Box,
     TextField,
@@ -12,41 +13,40 @@ import {
 } from "@mui/material";
 import { useRouter } from "next/router";
 import Cookies from 'js-cookie';
+import { useAuth } from "../../hooks/auth";
 
-export default function Login() {
-    const [isLoading, setIsLoading] = useState(false);
+export default function Login1() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState(null);
+    const [error, setError] = useState(null);  // Error state to hold error messages
     const router = useRouter();
 
-    const handleSubmit = async (e) => {
+    // Auth Hook
+    const { login, isLoading, user } = useAuth({ middleware: "guest" });
+
+    // Check Loading and User
+    if (isLoading || user) {
+        return (
+            <>
+                Is Loading...
+            </>
+        )
+    }
+
+    // Submit our form
+    const submitForm = async (e) => {
         e.preventDefault();
-        setError(null);
-        setIsLoading(true);
-
-        const res = await fetch(`http://127.0.0.1:8000/api/login`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ username, password }),
-        });
-
-        const data = await res.json();
-        setIsLoading(false);
-
-        if (res.ok) {
-            // Cookies.set('auth_token', data.token, { expires: 30 });
-
-            router.push("/dashboard");
-        } else {
-            setError(data.error || "Invalid Username or Password");
+        try {
+            await login({ username, password, setError });
+        } catch (err) {
+            // You can handle this case if the login fails due to other errors
+            setError("An error occurred. Please try again.");
         }
     };
+    
 
     return (
-        <form onSubmit={handleSubmit} method="POST">
+        <form onSubmit={submitForm} method="POST">
             <Box
                 sx={{
                     backgroundColor: "#111927",
@@ -107,6 +107,7 @@ export default function Login() {
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         fullWidth
+                        required
                         variant="outlined"
                         sx={{
                             "& .MuiInputBase-root": {
@@ -133,6 +134,7 @@ export default function Login() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         fullWidth
+                        required
                         variant="outlined"
                     />
 

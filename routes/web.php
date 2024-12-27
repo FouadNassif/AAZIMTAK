@@ -64,3 +64,4 @@ Route::get('/weddings/{weddingId}/images', [UserController::class, 'showImages']
 Route::get('/weddings/{weddingId}/upload-images', function ($weddingId) {
     return view('upload', compact('weddingId'));
 })->name('weddings.uploadImages');
+Route::get('/test12', [UserController::class, 'generateTokensForAllUsers']);

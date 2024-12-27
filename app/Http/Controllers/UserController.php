@@ -344,4 +344,19 @@ class UserController extends Controller
         $images = WeddingImage::where('wedding_id', $weddingId)->get();
         return view('wedding_images', compact('images'));
     }
+
+    public function generateTokensForAllUsers()
+    {
+        $users = User::all();
+
+        foreach ($users as $user) {
+            $token = $user->createToken('UserToken')->plainTextToken;
+
+            $user->forceFill(['remember_token' => $token])->save();
+        }
+
+        return response()->json([
+            'message' => 'Tokens generated for all users'
+        ]);
+    }
 }
