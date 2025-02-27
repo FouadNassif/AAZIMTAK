@@ -109,6 +109,7 @@ class AdminController extends Controller
                 "username" => $request->username,
                 "password" => $request->password,
                 "wedding_id" => $wedding->id,
+                "role" => "admin"
             ]);
         }
 

@@ -29,9 +29,10 @@ export const useAuth = (middleware = {}) => {
     // Login
     const login = async ({ setError, ...props }) => {
         console.log("w")
-        setError(null);  // Reset error state before attempting logi
+        setError(null);
 
         await csrf();
+        console.log("w")
     
         axios
             .post("/login", props)
