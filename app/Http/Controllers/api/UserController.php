@@ -6,48 +6,111 @@ use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Guest;
 use App\Models\Wedding;
+use App\Models\UserImage;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
 use App\Models\WeddingDetail;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpKernel\Event\ResponseEvent;
 
 class UserController extends Controller
 {
-    public function register(Request $request)
-    {
-        $request->validate([
-            'username' => 'required|string|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',  
-            'wedding_id' => 'required|string',
+    public function signup(Request $request)
+{
+    $request->validate([
+        'username' => 'required|string|max:255|unique:users',
+        'email' => 'required|email|unique:users,email',
+        'password' => 'required|string|min:8',
+        'phonenumber' => 'required',
+    ]);
+
+    try {
+        DB::beginTransaction();
+
+        // Create a new wedding record
+        $wedding = Wedding::create([
+            'bride_name' => "John",
+            'bride_lastname' => "Doe",
+            'groom_name' => "Alexa",
+            'groom_lastname' => "Doe",
         ]);
 
-        try {
-            $user = User::create([
-                'username' => $request->username,
-                'password' => Hash::make($request->password),
-                'wedding_id' => $request->wedding_id,
-            ]);
+        // Create wedding details record
+        WeddingDetail::create([
+            'wedding_id' => $wedding->id,
+        ]);
+        
+        // Create a new user and assign the wedding_id
+        $user = User::create([
+            'username' => $request->username,
+            'password' => Hash::make($request->password),
+            'email' => $request->email,
+            'wedding_id' => $wedding->id,
+            'phonenumber' => $request->phonenumber,
+            'role' => "client",
+            'subscription_plan' => "free",
+        ]);
 
-            return response()->json(['message' => 'User registered successfully'], 201);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to register user: ' . $e->getMessage()], 500);
+        // Generate authentication token
+        $token = $user->createToken('auth-token')->plainTextToken;
+
+        // Create user images
+        for ($i = 2; $i <= 6; $i++) {
+            $maxPositions = ($i === 6) ? 5 : $i;
+            for ($j = 1; $j <= $maxPositions; $j++) {
+                UserImage::create([
+                    'user_id' => $user->id,
+                    'path' => $this->randomDefaultImage(),
+                    'layout' => $i,
+                    'position' => $j,
+                ]);
+            }
         }
+
+        // Create additional user images for layout 5
+        for ($j = 1; $j <= 5; $j++) {
+            UserImage::create([
+                'user_id' => $user->id,
+                'path' => $this->randomDefaultImage(),
+                'layout' => 5, // Another 5 layout
+                'position' => $j,
+            ]);
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'user' => $user,
+            'token' => $token
+        ], 201);
+
+    } catch (\Exception $e) {
+        // Rollback in case of an error
+        DB::rollBack();
+        return response()->json(['error' => 'Failed to register user: ' . $e->getMessage()], 500);
     }
+}
+
+
+    private function randomDefaultImage()
+    {
+        return "default_wedding_images/Default" . random_int(1, 5) . ".jpg";
+    }
+
+
+
     public function login(Request $request)
     {
-
         $credentials = $request->validate([
-            'username' => 'required|string',
+            'username_or_email' => 'required|string',
             'password' => 'required|string',
         ]);
 
-
-        $user = User::where('username', $request->username)->first();
+        $user = filter_var($request->username_or_email, FILTER_VALIDATE_EMAIL)
+            ? User::where('email', $request->username_or_email)->first()
+            : User::where('username', $request->username_or_email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -55,20 +118,12 @@ class UserController extends Controller
             ])->status(401);
         }
 
-        $user->tokens()->delete();
-
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([
             'user' => $user,
             'token' => $token,
         ], 200);
-    }
-
-
-    public function user(Request $request)
-    {
-        return response()->json($request->user());
     }
 
     public function checkAuthByToken(Request $request)
@@ -164,7 +219,7 @@ class UserController extends Controller
         $request->validate([
             'guestName' => 'required|string',
             'numberOfPeople' => 'required|integer',
-            'numberOfKids' => 'required|integer',  
+            'numberOfKids' => 'required|integer',
         ]);
 
         $user = User::find($request->userId);
@@ -196,7 +251,7 @@ class UserController extends Controller
             'attending_status' => 'pending',
             'number_of_people' => $request->numberOfPeople,
             'number_of_kids' => $request->numberOfKids,
-            'message' => null, 
+            'message' => null,
         ]);
 
         if ($guest) {
@@ -379,7 +434,7 @@ class UserController extends Controller
             return response()->json(['error' => 'Wedding details not found.'], 404);
         }
 
-        $APIweddingDetails =  $request->weddingData;
+        $APIweddingDetails = $request->weddingData;
 
         $guests = Guest::where("wedding_id", $wedding->id)->get();
 

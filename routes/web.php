@@ -6,6 +6,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\WeddingController;
 use App\Http\Controllers\AazimtakController;
+use Illuminate\Support\Facades\Hash;
 
 Route::get('/', [AazimtakController::class, 'showHomePage'])->name('home');
 

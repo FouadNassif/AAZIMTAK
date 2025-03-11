@@ -7,6 +7,7 @@ use App\Http\Controllers\api\ImageUploadController;
 
 Route::post('/register', [UserController::class, 'register']);
 Route::post('/login', [UserController::class, 'login']);
+Route::post('/signup', [UserController::class, 'signup']);
 Route::get('/check-auth', [UserController::class, 'checkAuthByToken']);
 
 // Client Dashboard
