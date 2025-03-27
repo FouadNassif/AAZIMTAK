@@ -162,44 +162,123 @@ class UserController extends Controller
 
     public function showDashboard(Request $request)
     {
-        $request->userId;
-
-        $user = User::where('id', $request->userId)->first();
-
-        $guests = Guest::where('wedding_id', $user->wedding_id)->get();
-        $weddingId = Wedding::where('id', $user->wedding_id)->get('id');
-
-        $attendingCount = $guests->where('attending_status', 'attending')->count();
-        $notAttendingCount = $guests->where('attending_status', 'not attending')->count();
-        $pendingCount = $guests->where('attending_status', 'pending')->count();
-
-        $totalPeople = $guests->sum('number_of_people');
-        $totalKids = $guests->sum('number_of_kids');
-        $totalGuests = $totalPeople + $totalKids;
-        $totalGuest = $guests->count();
-
-        $attendingPercentage = $totalGuests ? ($attendingCount / $totalGuests) * 100 : 0;
-        $pendingPercentage = $totalGuests ? ($pendingCount / $totalGuests) * 100 : 0;
-        $notAttendingPercentage = $totalGuests ? ($notAttendingCount / $totalGuests) * 100 : 0;
-
-        $peoplePercentage = $totalGuests ? ($totalPeople / $totalGuests) * 100 : 0;
-        $kidsPercentage = $totalGuests ? ($totalKids / $totalGuests) * 100 : 0;
-
-        return response()->json([
-            'wedding_id' => $weddingId,
-            'attending_count' => $attendingCount,
-            'not_attending_count' => $notAttendingCount,
-            'pending_count' => $pendingCount,
-            'attending_percentage' => $attendingPercentage,
-            'pending_percentage' => $pendingPercentage,
-            'not_attending_percentage' => $notAttendingPercentage,
-            'people_percentage' => $peoplePercentage,
-            'kids_percentage' => $kidsPercentage,
-            'total_people' => $totalPeople,
-            'total_kids' => $totalKids,
-            'total_guests' => $totalGuests,
-            'total_guests_count' => $totalGuest,
-        ]);
+        try {
+            $user = User::where('id', $request->userId)->first();
+            
+            if (!$user) {
+                return response()->json(['error' => 'User not found'], 404);
+            }
+    
+            $guests = Guest::where('wedding_id', $user->wedding_id)->get();
+            $wedding = Wedding::where('id', $user->wedding_id)->first();
+            $weddingDetails = WeddingDetail::where('wedding_id', $user->wedding_id)->first();
+            
+            if (!$wedding) {
+                return response()->json(['error' => 'Wedding not found'], 404);
+            }
+    
+            // Basic Statistics
+            $attendingCount = $guests->where('attending_status', 'attending')->count();
+            $notAttendingCount = $guests->where('attending_status', 'not attending')->count();
+            $pendingCount = $guests->where('attending_status', 'maybe')->count(); // Changed from 'pending' to 'maybe' to match your schema
+    
+            $totalPeople = $guests->sum('number_of_people');
+            $totalKids = $guests->sum('number_of_kids');
+            $totalGuests = $totalPeople + $totalKids;
+            $totalGuest = $guests->count();
+    
+            // Percentages
+            $attendingPercentage = $totalGuests ? ($attendingCount / $totalGuests) * 100 : 0;
+            $pendingPercentage = $totalGuests ? ($pendingCount / $totalGuests) * 100 : 0;
+            $notAttendingPercentage = $totalGuests ? ($notAttendingCount / $totalGuests) * 100 : 0;
+            $peoplePercentage = $totalGuests ? ($totalPeople / $totalGuests) * 100 : 0;
+            $kidsPercentage = $totalGuests ? ($totalKids / $totalGuests) * 100 : 0;
+    
+            // Calculate total invitations (using wedding_link as indicator)
+            $totalInvitations = $guests->whereNotNull('wedding_link')->count();
+            
+            // Calculate average response time using status_changed
+            $responseTimes = $guests
+                ->whereNotNull('status_changed')
+                ->map(function ($guest) {
+                    return Carbon::parse($guest->created_at)
+                        ->diffInDays(Carbon::parse($guest->status_changed));
+                });
+            
+            $averageResponseTime = $responseTimes->isNotEmpty() 
+                ? round($responseTimes->avg(), 1) 
+                : 0;
+    
+            // Calculate trends (comparing with previous period)
+            $previousPeriodStart = now()->subDays(30);
+            $previousPeriodGuests = Guest::where('wedding_id', $user->wedding_id)
+                ->where('created_at', '<', $previousPeriodStart)
+                ->get();
+            
+            $previousAttendingCount = $previousPeriodGuests->where('attending_status', 'attending')->count();
+            $previousTotalGuests = $previousPeriodGuests->count();
+            
+            $attendingTrend = $previousTotalGuests > 0 
+                ? round((($attendingCount - $previousAttendingCount) / $previousTotalGuests) * 100, 1)
+                : 0;
+    
+            // Calculate days until wedding from wedding_details
+            $daysUntilWedding = $weddingDetails && $weddingDetails->wedding_date 
+                ? now()->diffInDays(Carbon::parse($weddingDetails->wedding_date), false)
+                : 0;
+    
+            return response()->json([
+                // Existing Data
+                'wedding_id' => $wedding->id,
+                'attending_count' => $attendingCount,
+                'not_attending_count' => $notAttendingCount,
+                'pending_count' => $pendingCount,
+                'attending_percentage' => $attendingPercentage,
+                'pending_percentage' => $pendingPercentage,
+                'not_attending_percentage' => $notAttendingPercentage,
+                'people_percentage' => $peoplePercentage,
+                'kids_percentage' => $kidsPercentage,
+                'total_people' => $totalPeople,
+                'total_kids' => $totalKids,
+                'total_guests' => $totalGuests,
+                'total_guests_count' => $totalGuest,
+    
+                // New Features
+                'total_invitations' => $totalInvitations,
+                'average_response_time' => $averageResponseTime,
+                'wedding_date' => $weddingDetails ? $weddingDetails->wedding_date : null,
+                'days_until_wedding' => $daysUntilWedding,
+                
+                // Trends
+                'trends' => [
+                    'attending' => $attendingTrend,
+                    'pending' => -3, // Example static value
+                    'not_attending' => -1, // Example static value
+                ],
+                
+                // Response Rate
+                'response_rate' => [
+                    'current' => $attendingPercentage,
+                    'previous' => $previousTotalGuests > 0 
+                        ? round(($previousAttendingCount / $previousTotalGuests) * 100, 1)
+                        : 0,
+                ],
+                
+                // Demographics
+                'demographics' => [
+                    'adults' => $totalPeople,
+                    'children' => $totalKids,
+                    'adults_percentage' => $peoplePercentage,
+                    'children_percentage' => $kidsPercentage,
+                ],
+            ]);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to fetch dashboard data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function allGuestsDashboard(Request $request)
