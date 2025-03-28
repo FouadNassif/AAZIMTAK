@@ -24,14 +24,12 @@ Route::post('/dashboard/wedding/getData', [UserController::class, 'getWeddingDat
 Route::post('/dashboard/wedding/saveData', [UserController::class, 'saveWeddingData']);
 
 Route::post('/dashboard/account/edit', [UserController::class, 'editAccount']);
-// Images Handling
-Route::post('/dashboard/wedding/upload-images', [ImageUploadController::class, 'uploadImages']);
-Route::post('/dashboard/wedding/getAllUserImages', [ImageUploadController::class, 'getAllUserImages']);
 
-// Check Wedding Link Data
-Route::post('/wedding/check/weddingId', [ImageUploadController::class, 'checkWeddingId']);
-Route::post('/wedding/check/groomAndBride', [ImageUploadController::class, 'checkGroomAndBride']);
-Route::post('/wedding/check/guestName', [ImageUploadController::class, 'checkGuestName']);
+// Image Upload Routes
+Route::post('/dashboard/wedding/image/upload', [ImageUploadController::class, 'upload']);
+Route::get('/dashboard/wedding/images/{userId}', [ImageUploadController::class, 'getAllImages']);
+
+// ... existing code ...
 
 // Show wedding Card 
 Route::post('/wedding/showWeddingCard', [UserController::class, 'getCardWeddingDetails']);

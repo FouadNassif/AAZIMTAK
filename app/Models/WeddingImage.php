@@ -9,5 +9,9 @@ class WeddingImage extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['wedding_id', 'path'];
+    protected $fillable = [
+        'user_id',
+        'path',
+        'layout',
+        'position',];
 }

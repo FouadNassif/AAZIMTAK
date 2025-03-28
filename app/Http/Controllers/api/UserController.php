@@ -6,10 +6,10 @@ use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Guest;
 use App\Models\Wedding;
-use App\Models\UserImage;
 use Illuminate\Http\Request;
 use App\Models\WeddingDetail;
 use App\Http\Controllers\Controller;
+use App\Models\WeddingImage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -56,28 +56,29 @@ class UserController extends Controller
         // Generate authentication token
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        $DEFAULT_IMAGE_PATH = "/assets/img/Alogo.png";
         // Create user images
         for ($i = 2; $i <= 6; $i++) {
             $maxPositions = ($i === 6) ? 5 : $i;
             for ($j = 1; $j <= $maxPositions; $j++) {
-                UserImage::create([
+                WeddingImage::create([
                     'user_id' => $user->id,
-                    'path' => $this->randomDefaultImage(),
+                    'path' => $DEFAULT_IMAGE_PATH,
                     'layout' => $i,
                     'position' => $j,
                 ]);
             }
         }
 
-        // Create additional user images for layout 5
-        for ($j = 1; $j <= 5; $j++) {
-            UserImage::create([
-                'user_id' => $user->id,
-                'path' => $this->randomDefaultImage(),
-                'layout' => 5, // Another 5 layout
-                'position' => $j,
-            ]);
-        }
+        // // Create additional user images for layout 5
+        // for ($j = 1; $j <= 5; $j++) {
+        //     UserImage::create([
+        //         'user_id' => $user->id,
+        //         'path' => $this->randomDefaultImage(),
+        //         'layout' => 5, // Another 5 layout
+        //         'position' => $j,
+        //     ]);
+        // }
 
         DB::commit();
 

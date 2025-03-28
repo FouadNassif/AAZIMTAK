@@ -2,70 +2,105 @@
 
 namespace App\Http\Controllers\api;
 
-use App\Models\User;
-use App\Models\UserImage;
+use App\Models\WeddingImage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\Controller;
 
 class ImageUploadController extends Controller
 {
-    public function uploadImages(Request $request)
-    {
-        // Validate images (only accept image files)
-        $request->validate([
-            'images.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // Max size 2MB
-        ]);
+    public function upload(Request $request)
+{
+    $request->validate([
+        'image' => 'required|image',
+        'userId' => 'required|numeric',
+        'layout' => 'required|numeric',
+        'position' => 'required|numeric'
+    ]);
 
-        $user = User::find($request->userId); // Find user by userId
-        $uploadedImages = [];
+    try {
+        // First, check if an image already exists with these parameters
+        $existingImage = WeddingImage::where('user_id', $request->userId)
+            ->where('layout', $request->layout)
+            ->where('position', $request->position)
+            ->first();
 
-        foreach ($request->file('images') as $image) {
-            // Store image in the storage folder
-            $path = $image->store("user_images/{$user->id}", 'public'); // Store file in public storage
-            $uploadedImages[] = $path;
+        $path = $request->file('image')->store('wedding-images', 'public');
 
-            // Save the image path in the database
-            UserImage::create([
-                'user_id' => $user->id,
+        if ($existingImage) {
+            // If exists, update the path
+            Storage::disk('public')->delete($existingImage->path); // Delete old image
+            $existingImage->path = $path;
+            $existingImage->save();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Image updated successfully',
+                'image' => [
+                    'path' => $path,
+                    'layout' => $existingImage->layout,
+                    'position' => $existingImage->position
+                ]
+            ]);
+        } else {
+            // If doesn't exist, create new record
+            $image = new WeddingImage([
+                'user_id' => $request->userId,
                 'path' => $path,
-                'layout' => 1,
-                "position" => 1
+                'layout' => $request->layout,
+                'position' => $request->position
+            ]);
+            $image->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image uploaded successfully',
+                'image' => [
+                    'path' => $path,
+                    'layout' => $image->layout,
+                    'position' => $image->position
+                ]
             ]);
         }
-
+    } catch (\Exception $e) {
         return response()->json([
-            'message' => 'Images uploaded successfully!',
-            'paths' => array_map(function ($path) {
-                return url('storage/' . $path);
-            }, $uploadedImages),
-        ]);
+            'success' => false,
+            'message' => 'Failed to upload image: ' . $e->getMessage()
+        ], 500);
     }
+}
 
-    public function getAllUserImages(Request $request)
-    {
-        $user = User::find($request->userId);
-        if (!$user) {
-            return response()->json(['error' => 'User not found'], 404);
-        }
-
-        // Fetch images grouped by layout and ordered by position
-        $uploadedImages = UserImage::where('user_id', $user->id)
+public function getAllImages($userId)
+{
+    try {
+        // Get all images for the user, ordered by layout and position
+        $images = WeddingImage::where('user_id', $userId)
             ->orderBy('layout')
             ->orderBy('position')
-            ->get(['layout', 'position', 'path']);
+            ->get()
+            ->map(function ($image) {
+                return [
+                    'id' => $image->id,
+                    'path' => '/storage/' . $image->path, // Assuming images are stored in storage/app/public
+                    'layout' => $image->layout,
+                    'position' => $image->position
+                ];
+            });
 
-        $groupedImages = [];
+        return response()->json([
+            'success' => true,
+            'images' => $images
+        ]);
 
-        foreach ($uploadedImages as $image) {
-            // Group by layout
-            if (!isset($groupedImages[$image->layout])) {
-                $groupedImages[$image->layout] = [];
-            }
-
-            // Assign image path to the corresponding position
-            $groupedImages[$image->layout][$image->position] = $image->path;
-        }
-
-        return response()->json($groupedImages);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch images: ' . $e->getMessage(),
+            'images' => []
+        ], 500);
     }
+}
 }
